@@ -1,160 +1,79 @@
-﻿using UnityEngine;
-using System.Collections;
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 
-[RequireComponent(typeof(Controller2D))]
+[RequireComponent (typeof(Sprite))]
 public class Player : MonoBehaviour
 {
-
-    public float maxJumpHeight = 4;
-    public float minJumpHeight = 1;
-    public float timeToJumpApex = .4f;
-    float accelerationTimeAirborne = .2f;
-    float accelerationTimeGrounded = .1f;
-    float moveSpeed = 6;
-
-    public Vector2 wallJumpClimb;
-    public Vector2 wallJumpOff;
-    public Vector2 wallJumpLeap;
-
-    public float wallSlideSpeedMax = 3;
-    public float wallStickTime = .25f;
-    float timeToWallUnstick;
-
-    float gravity;
-    float maxJumpVelocity;
-    float minJumpVelocity;
-    Vector3 velocity;
-    float velocityXSmoothing;
-
-    bool wallSliding;
-    int wallDirX;
-
-    Controller2D controller;
-
-    Vector2 directionalInput;
+    Sprite player; 
 
     void Start()
     {
-        controller = GetComponent<Controller2D>();
-
-        gravity = -(2 * maxJumpHeight) / Mathf.Pow(timeToJumpApex, 2);
-        maxJumpVelocity = Mathf.Abs(gravity) * timeToJumpApex;
-        minJumpVelocity = Mathf.Sqrt(2 * Mathf.Abs(gravity) * minJumpHeight);
+        player = GetComponent<Sprite>();
+        player.stats.health = 100;
+        player.stats.moveSpeed = 5;
+        player.stats.maxJumpHeight = 2;
+        player.stats.minJumpHeight = 1;
+        player.stats.timeToJumpApex = .2f;
+        player.stats.wallSlideSpeedMax = 3;
+        player.stats.wallStickTime = .25f;
     }
 
     void Update()
     {
-        CalculateVelocity();
-        HandleWallSliding();
+        //print("Tag Hor: " + player.controller.collisions.tagHorizontal);
+        //print("Tag Vert: " + player.controller.collisions.tagVertical);
 
-        controller.Move(velocity * Time.deltaTime, directionalInput);
-
-        if (controller.collisions.above || controller.collisions.below)
+        if (!CheckPlayerAlive())
         {
-            if (controller.collisions.slidingDownMaxSlope)
-            {
-                velocity.y += controller.collisions.slopeNormal.y * -gravity * Time.deltaTime;
-            } else
-            {
-                velocity.y = 0; 
-            }
+            Destroy(gameObject);
+        } else
+        {
+            Movement();
+            EnemyInteractions();
         }
     }
 
-    public void SetDirectionalInput(Vector2 input)
+    bool CheckPlayerAlive()
     {
-        directionalInput = input;
-    }
-
-    public void OnJumpInputDown()
-    {
-        if (wallSliding)
+        if (player.stats.health <= 0)
         {
-            if (directionalInput.x == wallDirX)
-            {
-                velocity.x = -wallDirX * wallJumpClimb.x;
-                velocity.y = wallJumpClimb.y;
-            }
-            else if (directionalInput.x == 0)
-            {
-                velocity.x = -wallDirX * wallJumpOff.x;
-                velocity.y = wallJumpClimb.y;
-            }
-            else
-            {
-                velocity.x = -wallDirX * wallJumpLeap.x;
-                velocity.y = wallJumpLeap.y;
-            }
-        }
-        if (controller.collisions.below)
+            return false;
+        } else
         {
-            if (controller.collisions.slidingDownMaxSlope)
-            {
-                // Not jumping against a max slope
-                if (directionalInput.x != -Mathf.Sign(controller.collisions.slopeNormal.x))  
-                {
-                    velocity.y = maxJumpVelocity * controller.collisions.slopeNormal.y;
-                    velocity.x = maxJumpVelocity * controller.collisions.slopeNormal.x;
-
-                }
-            } else
-            {
-                velocity.y = maxJumpVelocity;
-            }
+            return true; 
         }
     }
 
-    public void OnJumpInputUp()
+    /*
+     * Use input by player to move the player sprite
+     */
+    void Movement()
     {
-        if (velocity.y > minJumpVelocity)
+        Vector2 directionalInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        player.SetDirectionalInput(directionalInput);
+
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            velocity.y = minJumpVelocity;
+            player.OnJumpInputDown();
+        }
+
+        if (Input.GetKeyUp(KeyCode.Space))
+        {
+            player.OnJumpInputUp();
+        }
+    }
+    
+    /*
+     * Deals with any effects on the player due to interactions with enemies. 
+     */
+    void EnemyInteractions()
+    {
+        if (player.controller.collisions.tagRight == "Rambwan" || player.controller.collisions.tagLeft == "Rambwan")
+        {
+            player.stats.health -= 0;
+            print("Health: " + player.stats.health);
         }
     }
 
-  
-
-    void CalculateVelocity()
-    {
-        float targetVelocityX = directionalInput.x * moveSpeed;
-        velocity.x = Mathf.SmoothDamp(velocity.x, targetVelocityX, ref velocityXSmoothing, (controller.collisions.below) ? accelerationTimeGrounded : accelerationTimeAirborne);
-        velocity.y += gravity * Time.deltaTime;
-    }
-
-    void HandleWallSliding()
-    {
-        wallDirX = (controller.collisions.left) ? -1 : 1;
-
-        wallSliding = false;
-        if ((controller.collisions.left || controller.collisions.right) &&
-                !controller.collisions.below && velocity.y < 0)
-        {
-            wallSliding = true;
-
-            if (velocity.y < wallSlideSpeedMax)
-            {
-                velocity.y = -wallSlideSpeedMax;
-            }
-
-            if (timeToWallUnstick > 0)
-            {
-                velocityXSmoothing = 0;
-                velocity.x = 0;
-
-                if (directionalInput.x != wallDirX && directionalInput.x != 0)
-                {
-                    timeToWallUnstick -= Time.deltaTime;
-                }
-                else
-                {
-                    timeToWallUnstick = wallStickTime;
-                }
-            }
-            else
-            {
-                timeToWallUnstick = wallStickTime;
-            }
-
-        }
-    }
 }

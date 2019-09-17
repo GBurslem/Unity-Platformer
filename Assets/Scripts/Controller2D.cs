@@ -8,7 +8,7 @@ public class Controller2D : RaycastController
 
     public CollisionInfo collisions;
     [HideInInspector]
-    public Vector2 playerInput;
+    public Vector2 spriteInput;
 
 
     public override void Start()
@@ -27,7 +27,7 @@ public class Controller2D : RaycastController
         UpdateRaycastOrigins();
         collisions.Reset();
         collisions.moveAmountOld = moveAmount;
-        playerInput = input;
+        spriteInput = input;
 
         
         if (moveAmount.y < 0)
@@ -68,14 +68,17 @@ public class Controller2D : RaycastController
         for (int i = 0; i < horizontalRayCount; i++)
         {
             Vector2 rayOrigin = (directionX == -1) ? raycastOrigins.bottomLeft : raycastOrigins.bottomRight;
+
             rayOrigin += Vector2.up * (horizontalRaySpacing * i);
             RaycastHit2D hit = Physics2D.Raycast(rayOrigin, Vector2.right * directionX, rayLength, collisionMask);
+            //RaycastHit2D hit2 = Physics2D.Raycast(rayOrigin, Vector2.left * directionX, rayLength, collisionMask);
 
             Debug.DrawRay(rayOrigin, Vector2.right * directionX, Color.red);
 
+
             if (hit)
             {
-
+                UpdateHorizontalTags(hit, directionX);
                 if (hit.distance == 0)
                 {
                     continue;
@@ -133,8 +136,9 @@ public class Controller2D : RaycastController
 
             if (hit)
             {
+                UpdateVerticalTags(hit, directionY);
                 if (hit.collider.tag == "Through")
-                {
+                {   
                     if (directionY == 1 || hit.distance == 0)
                     {
                         continue;
@@ -143,7 +147,7 @@ public class Controller2D : RaycastController
                     {
                         continue;
                     }
-                    if (playerInput.y == -1)
+                    if (spriteInput.y == -1)
                     {
                         collisions.fallingThroughPlatform = true;
                         Invoke("ResetFallingThroughPlatform", .5f);
@@ -182,6 +186,30 @@ public class Controller2D : RaycastController
 
                 }
             }
+        }
+    }
+
+    void UpdateVerticalTags(RaycastHit2D hit, float direction)
+    {
+        if (direction == 1)
+        {
+            collisions.tagAbove = hit.collider.tag;
+        }
+        else
+        {
+            collisions.tagBelow = hit.collider.tag;
+        }
+    }
+
+    void UpdateHorizontalTags(RaycastHit2D hit, float direction)
+    {
+        if (direction == 1)
+        {
+            collisions.tagRight = hit.collider.tag;
+        }
+        else
+        {
+            collisions.tagLeft = hit.collider.tag;
         }
     }
 
@@ -261,7 +289,7 @@ public class Controller2D : RaycastController
             }
         }
     }
-
+    
     void ResetFallingThroughPlatform()
     {
         collisions.fallingThroughPlatform = false;
@@ -284,6 +312,9 @@ public class Controller2D : RaycastController
         public int faceDir;
         public bool fallingThroughPlatform;
 
+        public string tagAbove, tagBelow;
+        public string tagLeft, tagRight;
+
         public void Reset()
         {
             above = below = false;
@@ -295,6 +326,10 @@ public class Controller2D : RaycastController
             slopeAngleOld = slopeAngle;
             slopeAngle = 0;
             slidingDownMaxSlope = false;
+            tagAbove = "";
+            tagBelow = "";
+            tagLeft = "";
+            tagRight = "";
         }
     }
 
